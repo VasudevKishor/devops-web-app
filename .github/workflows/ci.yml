@@ -1,0 +1,43 @@
+name: Flask App CI
+
+on:
+  push:
+    branches:
+      - main  # Triggers the workflow when pushing to the main branch
+  pull_request:
+    branches:
+      - main  # Triggers the workflow on pull requests targeting the main branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Run the CI pipeline on the latest Ubuntu
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2  # Checkout the code from the repo
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1  # Set up Docker Buildx for multi-platform support
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache  # Cache Docker layers to speed up future builds
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+
+      - name: Build Docker image
+        run: docker build -t devops-flask-app .  # Build the Docker image
+
+      - name: Run tests
+        run: docker run devops-flask-app python -m unittest discover  # Run tests inside the container
+
+      - name: Push Docker image to DockerHub (Optional)
+        if: github.ref == 'refs/heads/main'  # Only push to DockerHub if we're on the main branch
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}  # DockerHub login
+          docker tag devops-flask-app ${{ secrets.DOCKER_USERNAME }}/devops-flask-app:latest  # Tag the image
+          docker push ${{ secrets.DOCKER_USERNAME }}/devops-flask-app:latest  # Push to DockerHub
+
+
